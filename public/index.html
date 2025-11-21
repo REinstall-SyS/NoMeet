@@ -1,0 +1,2298 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoMeet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;7L&family=Lora:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Lora', 'serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F3F4F6;
+            /* Light gray background */
+            background-image: url("data:image/svg+xml,%3Csvg width='20' height='20' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000000' fill-opacity='0.05' fill-rule='evenodd'%3E%3Ccircle cx='3' cy='3' r='3'/%3E%3Ccircle cx='13' cy='13' r='3'/%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .loader {
+            border: 4px solid #e5e7eb;
+            /* light-gray */
+            border-top: 4px solid #1f2937;
+            /* dark-gray */
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #toast {
+            visibility: hidden;
+            min-width: 250px;
+            margin-left: -125px;
+            background-color: #111827;
+            color: #f9fafb;
+            text-align: center;
+            border-radius: 8px;
+            padding: 16px;
+            position: fixed;
+            z-index: 100;
+            left: 50%;
+            bottom: 30px;
+            font-size: 16px;
+            opacity: 0;
+            transition: opacity 0.3s, bottom 0.3s, visibility 0.3s;
+        }
+
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            bottom: 50px;
+        }
+
+        .prose-serif {
+            font-family: 'Lora', serif;
+            font-size: 1.05rem;
+            line-height: 1.6;
+            color: #374151;
+            /* Default text color */
+        }
+
+        .prose-serif p {
+            margin-bottom: 1em;
+        }
+
+        .prose-serif ul {
+            list-style-type: disc;
+            padding-left: 1.5em;
+            margin-bottom: 1em;
+        }
+
+        .prose-serif li {
+            margin-bottom: 0.5em;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        .font-serif {
+            font-family: 'Lora', serif;
+            font-weight: 600;
+        }
+
+        .avatar-small {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            overflow: hidden;
+            /* MODIFIED: Removed B&W border */
+        }
+
+        .avatar-medium {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            overflow: hidden;
+            /* MODIFIED: Removed B&W border */
+        }
+
+        .avatar-large {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            overflow: hidden;
+            /* MODIFIED: Removed B&W border */
+        }
+
+        .avatar-picker-option {
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+            border-radius: 50%;
+            overflow: hidden;
+            width: 60px;
+            height: 60px;
+            /* MODIFIED: Removed B&W border */
+            border: 2px solid #D1D5DB;
+        }
+
+        .avatar-picker-option:hover {
+            /* MODIFIED: Colorful hover */
+            border: 2px solid #3498DB;
+        }
+
+        .avatar-picker-option.selected {
+            /* MODIFIED: Colorful select */
+            border: 2px solid #3498DB;
+            transform: scale(1.1);
+        }
+
+        /* B&W Card Style with Shadow */
+        .card {
+            background-color: white;
+            border: 2px solid black;
+            border-radius: 8px;
+            box-shadow: 4px 4px 0 0 black;
+        }
+
+        /* Hover effect for thread cards */
+        .thread-list-card {
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+        }
+
+        .thread-list-card:hover {
+            background-color: #F9FAFB;
+            box-shadow: 2px 2px 0 0 black;
+            transform: translate(2px, 2px);
+        }
+
+        /* B&W Status Badge Colors */
+        .status-badge {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            border: 1px solid #D1D5DB;
+            color: #374151;
+            display: inline-block;
+        }
+
+        .status-on-track {
+            /* Default */
+        }
+
+        .status-delayed {
+            border: 1px solid #6B7280;
+            color: #1F2937;
+        }
+
+        .status-blocked {
+            background-color: #111827;
+            color: #FFFFFF;
+            border-color: #111827;
+        }
+
+        .status-none {
+            background-color: #F3F4F6;
+            color: #6B7280;
+            border-color: #E5E7EB;
+        }
+
+
+        /* B&W Contradiction Badge */
+        .contradiction-badge {
+            display: inline-flex;
+            align-items: center;
+            background-color: #F9FAFB;
+            color: #1F2937;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid #D1D5DB;
+        }
+
+        /* Thread Card Content Formatting */
+        .thread-content-section {
+            font-family: 'Lora', serif;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #374151;
+            white-space: pre-wrap;
+            padding-left: 1rem;
+            border-left: 3px solid #e5e7eb;
+        }
+
+        /* Filter Button B&W Styling */
+        .filter-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 2px solid black;
+            background-color: #fff;
+            color: black;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.15s;
+        }
+
+        .filter-btn:hover {
+            background-color: #F9FAFB;
+        }
+
+        .filter-btn.active {
+            background-color: #111827;
+            color: #fff;
+            border-color: #111827;
+        }
+
+        /* New Toggle Switch Style */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #111827;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(26px);
+        }
+
+        /* B&W Input Style */
+        .input-bw {
+            border: 2px solid black;
+            border-radius: 8px;
+            padding: 10px;
+            transition: all 0.15s;
+        }
+
+        .input-bw:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.2);
+        }
+
+        /* B&W Button Style */
+        .btn-primary {
+            background-color: black;
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 2px solid black;
+            transition: all 0.15s;
+        }
+
+        .btn-primary:hover {
+            background-color: white;
+            color: black;
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            background-color: #6B7280;
+            border-color: #6B7280;
+            color: white;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: black;
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid black;
+            transition: all 0.15s;
+        }
+
+        .btn-secondary:hover {
+            background-color: black;
+            color: white;
+        }
+
+        .btn-secondary:disabled {
+            opacity: 0.5;
+            background-color: #F3F4F6;
+            color: #6B7280;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background-color: #EF4444;
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: 2px solid #EF4444;
+            transition: all 0.15s;
+        }
+
+        .btn-danger:hover {
+            background-color: #DC2626;
+            border-color: #DC2626;
+        }
+    </style>
+</head>
+
+<body class="text-gray-800 bg-gray-100">
+
+    <div class="flex h-screen">
+
+        <nav class="hidden md:flex flex-col w-64 bg-white border-r-2 border-black">
+            <div class="p-4 flex items-center gap-3 border-b-2 border-black">
+                <span
+                    class="bg-white text-black border-2 border-black w-10 h-10 rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0">NM</span>
+                <span class="text-2xl font-bold text-gray-800 font-serif">NoMeet</span>
+            </div>
+
+            <div class="flex-1 p-4 space-y-2">
+                <a href="#" id="nav-btn-home"
+                    class="nav-link bg-black text-white flex items-center gap-3 p-3 rounded-lg font-medium">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z" />
+                    </svg>
+                    Dashboard
+                </a>
+                <a href="#" id="nav-btn-trends"
+                    class="nav-link text-gray-700 hover:bg-gray-100 flex items-center gap-3 p-3 rounded-lg font-medium">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                    </svg>
+                    Weekly Trend
+                </a>
+                <a href="#" id="nav-btn-team"
+                    class="nav-link text-gray-700 hover:bg-gray-100 flex items-center gap-3 p-3 rounded-lg font-medium">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M17 20h5v-2a3 3 0 00-5.356-2.37A8 8 0 1112 4c0 1.94 1.06 3.66 2.644 4.63A3 3 0 0017 11v9zM12 11a3 3 0 100-6 3 3 0 000 6z" />
+                    </svg>
+                    Team View
+                </a>
+                <a href="#" id="nav-btn-profile"
+                    class="nav-link text-gray-700 hover:bg-gray-100 flex items-center gap-3 p-3 rounded-lg font-medium">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Profile
+                </a>
+                <a href="#" id="nav-btn-settings"
+                    class="nav-link text-gray-700 hover:bg-gray-100 flex items-center gap-3 p-3 rounded-lg font-medium">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Settings
+                </a>
+            </div>
+
+            <div class="p-4 border-t-2 border-black">
+                <div class="p-3 bg-gray-100 rounded-lg">
+                    <span class="text-sm text-gray-700">Logged in as:</span>
+                    <strong id="user-id-display" class="text-gray-900 text-sm break-all">Loading...</strong>
+                </div>
+            </div>
+        </nav>
+
+        <div class="flex-1 flex flex-col overflow-y-auto">
+
+            <header
+                class="bg-white border-b-2 border-black p-4 flex justify-between items-center sticky top-0 z-50 gap-4">
+                <div>
+                    <input type="date" id="calendar-date-picker" class="input-bw text-sm font-semibold text-gray-800">
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <a href="#" id="header-btn-profile"
+                        class="flex items-center space-x-2 text-gray-600 hover:text-black font-medium transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span id="admin-badge"
+                            class="hidden ml-1 px-2 py-0.5 bg-gray-800 text-white text-xs font-bold rounded-full">ADMIN</span>
+                    </a>
+                </div>
+            </header>
+
+            <main class="flex-1 p-4 md:p-8">
+
+                <div id="page-home">
+
+                    <div id="new-update-cta-container"
+                        class="mb-8 p-6 card flex flex-col md:flex-row items-center justify-between gap-4">
+                        <h2 id="cta-title" class="text-2xl font-serif text-gray-900">
+                            Ready to post your update for <span id="cta-date" class="font-bold"></span>?
+                        </h2>
+                        <button id="btn-new-update" class="btn-primary w-full md:w-auto flex-shrink-0">
+                            Post Your Update
+                        </button>
+                        <button id="btn-edit-update" class="btn-secondary w-full md:w-auto flex-shrink-0"
+                            style="display: none;">
+                            Edit Your Update
+                        </button>
+                    </div>
+
+                    <h2 class="text-3xl font-serif text-gray-900 mb-6">Daily Dashboard</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="card p-6">
+                            <h3 class="text-lg font-serif text-gray-700">My Status</h3>
+                            <p class="text-3xl font-bold text-gray-900 mt-2" id="stat-my-status">--</p>
+                        </div>
+                        <div class="card p-6">
+                            <h3 class="text-lg font-serif text-gray-700">Team Blockers Today</h3>
+                            <p class="text-3xl font-bold text-gray-900 mt-2" id="stat-team-blockers">--</p>
+                        </div>
+                        <div class="card p-6">
+                            <h3 class="text-lg font-serif text-gray-700">Team Vibe</h3>
+                            <p class="text-3xl font-bold text-gray-900 mt-2" id="stat-team-vibe">--</p>
+                        </div>
+                    </div>
+
+
+                    <div id="admin-controls"
+                        class="hidden my-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+                        <button id="generate-summary-btn" class="btn-secondary">
+                            Generate AI Report
+                        </button>
+                        <div id="loading-spinner" class="loader" style="display: none;"></div>
+                    </div>
+
+
+                    <div class="mb-8">
+                        <div id="ai-output" class="hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                            <div id="admin-remarks-card" class="hidden lg:col-span-2 bg-black text-white p-8 rounded-lg"
+                                style="box-shadow: 4px 4px 0 0 #4B5563;">
+                                <h3 class="text-xl font-serif text-white mb-2">Admin Remarks</h3>
+                                <div id="admin-remarks-content" class="prose-serif text-gray-200"></div>
+                            </div>
+
+                            <div id="publish-controls"
+                                class="hidden lg:col-span-2 bg-gray-100 border-2 border-black p-4 rounded-lg flex flex-col gap-4"
+                                style="box-shadow: 4px 4px 0 0 black;">
+                                <div class="flex flex-col sm:flex-row items-center justify-between">
+                                    <div>
+                                        <span class="font-bold text-gray-800">DRAFT MODE</span>
+                                        <span class="text-gray-700 ml-2">This report is not visible to the team
+                                            yet.</span>
+                                    </div>
+                                    <button id="publish-summary-btn" class="btn-primary w-full sm:w-auto mt-4 sm:mt-0">
+                                        Publish Report
+                                    </button>
+                                </div>
+                                <div class="mt-2">
+                                    <label for="admin-remarks-textarea"
+                                        class="block text-lg font-serif text-gray-700">Add Admin Remarks
+                                        (Optional)</label>
+                                    <textarea id="admin-remarks-textarea" class="w-full h-24 p-3 mt-2 input-bw"
+                                        placeholder="Add your summary or context here..."></textarea>
+                                </div>
+                            </div>
+
+                            <div class="card p-8 lg:col-span-2">
+                                <h3 class="text-lg font-serif text-gray-800 mb-2">TL;DR Summary</h3>
+                                <div id="summary-content" class="prose-serif text-gray-700"></div>
+                            </div>
+                            <div class="card p-8">
+                                <h3 class="text-lg font-serif text-gray-800 mb-2">Team Vibe</h3>
+                                <div id="vibe-content" class="text-2xl font-bold text-gray-900"></div>
+                            </div>
+                            <div class="card p-8">
+                                <h3 class="text-lg font-serif text-gray-800 mb-2">Action Items</h3>
+                                <ul id="takeaways-content" class="space-y-2 text-gray-700 prose-serif"></ul>
+                            </div>
+                            <div class="card p-8 lg:col-span-2">
+                                <h3 class="text-lg font-serif text-gray-800 mb-2">Suggestions</h3>
+                                <ul id="suggestions-content" class="space-y-2 text-gray-700 prose-serif"></ul>
+                            </div>
+                        </div>
+                        <div id="ai-empty-state" class="hidden text-center p-8 card">
+                            <p class="text-gray-500">The AI Report for this day has not been published yet.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                        <h2 id="thread-list-title" class="text-3xl font-serif text-gray-900">Today's Threads</h2>
+                        <div id="filter-bar" class="flex items-center space-x-2">
+                            <button class="filter-btn active" data-filter="all">All</button>
+                            <button class="filter-btn" data-filter="blocked">Blocked</button>
+                            <button class="filter-btn" data-filter="delayed">Delayed</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <input type="search" id="search-bar" placeholder="Search threads by name or content..."
+                            class="w-full mt-4 input-bw">
+                    </div>
+
+                    <div id="empty-state-message" class="text-center py-10 text-gray-500 card" style="display: none;">
+                        <h3 class="mt-4 text-xl font-serif text-gray-700">No threads added yet</h3>
+                        <p class="text-sm">Click the 'Post Your Update' button above to add the first thread.</p>
+                    </div>
+
+                    <div id="team-updates-list" class="space-y-6"> </div>
+                </div>
+                <div id="page-new-update" style="display: none;">
+
+                    <button id="btn-back-to-home-from-add"
+                        class="mb-6 text-gray-600 hover:text-black font-medium transition-colors flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </button>
+
+                    <h2 class="text-2xl font-serif text-gray-900 mb-4">Your Thread for <span
+                            id="add-thread-date"></span>
+                    </h2>
+                    <p class="text-lg text-gray-700 mb-6 flex items-center">Posting as:
+                        <span id="add-thread-user-avatar"
+                            class="inline-block w-8 h-8 rounded-full mx-2 bg-gray-200"></span>
+                        <strong id="add-thread-user-name" class="text-black">Loading...</strong>
+                    </p>
+
+                    <div class="space-y-6">
+                        <div class="p-6 card">
+                            <label class="block text-lg font-serif text-gray-700">What's your status?</label>
+                            <div class="flex flex-col sm:flex-row gap-4 mt-3" id="update-status-group">
+                                <label
+                                    class="flex-1 flex items-center p-3 border-2 border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-black">
+                                    <input type="radio" name="update-status" value="on-track"
+                                        class="h-5 w-5 text-black focus:ring-black" checked>
+                                    <span class="ml-3 font-medium text-gray-800">On track</span>
+                                </label>
+                                <label
+                                    class="flex-1 flex items-center p-3 border-2 border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-black">
+                                    <input type="radio" name="update-status" value="delayed"
+                                        class="h-5 w-5 text-black focus:ring-black">
+                                    <span class="ml-3 font-medium text-gray-800">Delayed</span>
+                                </label>
+                                <label
+                                    class="flex-1 flex items-center p-3 border-2 border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 hover:border-black">
+                                    <input type="radio" name="update-status" value="blocked"
+                                        class="h-5 w-5 text-black focus:ring-black">
+                                    <span class="ml-3 font-medium text-gray-800">Blocked</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="p-6 card">
+                            <label for="update-done-textarea"
+                                class="block text-lg font-serif text-gray-700">Accomplishments</label>
+                            <textarea id="update-done-textarea" class="w-full h-24 p-3 mt-2 input-bw"
+                                placeholder="e.g., - Finished the login page mockups..."></textarea>
+                        </div>
+
+                        <div class="p-6 card">
+                            <label for="update-doing-textarea" class="block text-lg font-serif text-gray-700">Current
+                                Focus</label>
+                            <textarea id="update-doing-textarea" class="w-full h-24 p-3 mt-2 input-bw"
+                                placeholder="e.g., - Start prototyping the dashboard..."></textarea>
+                        </div>
+
+                        <div class="p-6 card border-4 border-black">
+                            <label for="update-blockers-textarea"
+                                class="block text-lg font-serif text-black">Obstacles</label>
+                            <textarea id="update-blockers-textarea" class="w-full h-24 p-3 mt-2 input-bw"
+                                placeholder="e.g., - Waiting on API keys from the backend team..."></textarea>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between mt-4 gap-2">
+                            <div class="flex items-center gap-2">
+                                <button id="record-my-update"
+                                    class="record-btn btn-secondary flex items-center"></button>
+                                <button id="clarify-my-update"
+                                    class="clarify-btn btn-secondary flex items-center text-sm"></button>
+                            </div>
+                            <button id="submit-my-update" class="btn-primary text-lg">
+                                Submit Thread
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="page-profile" style="display: none;">
+                    <button id="btn-back-to-home-from-profile"
+                        class="mb-6 text-gray-600 hover:text-black font-medium transition-colors flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </button>
+                    <h2 class="text-3xl font-serif text-gray-900 mb-6">Your Profile</h2>
+
+                    <div class="space-y-6">
+                        <div class="p-6 card">
+                            <label for="profile-name" class="block text-lg font-serif text-gray-700">Your Name</label>
+                            <input type="text" id="profile-name" class="w-full p-2 mt-2 input-bw"
+                                placeholder="Enter your name">
+                        </div>
+
+                        <div class="p-6 card">
+                            <label class="block text-lg font-serif text-gray-700 mb-4">Choose Your Avatar</label>
+                            <div id="avatar-picker" class="grid grid-cols-4 sm:grid-cols-6 gap-4">
+                            </div>
+                        </div>
+
+                        <button id="save-profile" class="w-full btn-primary text-lg">
+                            Save Profile
+                        </button>
+                    </div>
+                </div>
+                <div id="page-thread-detail" style="display: none;">
+                    <button id="btn-back-to-home-from-detail"
+                        class="mb-6 text-gray-600 hover:text-black font-medium transition-colors flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </button>
+
+                    <h2 class="text-2xl font-serif text-gray-900 mb-4">Thread Details</h2>
+                    <div id="thread-detail-main" class="p-6 card mb-8">
+                    </div>
+
+                    <h3 class="text-xl font-serif text-gray-900 mb-4">Replies</h3>
+                    <div id="thread-replies-list" class="space-y-4 mb-8">
+                    </div>
+                    <div id="no-replies-message" class="text-gray-500 text-center py-4" style="display: none;">
+                        Be the first to reply...
+                    </div>
+
+                    <div class="p-6 card">
+                        <label for="reply-textarea" class="block text-lg font-serif text-gray-700">Add Your
+                            Reply</label>
+                        <textarea id="reply-textarea" class="w-full h-20 p-3 mt-2 input-bw"
+                            placeholder="Write your reply..."></textarea>
+                        <div class="text-right mt-4">
+                            <button id="submit-reply" class="btn-primary">
+                                Submit Reply
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="page-weekly-trend" style="display: none;">
+                    <button id="btn-back-to-home-from-trend"
+                        class="mb-6 text-gray-600 hover:text-black font-medium transition-colors flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </button>
+
+                    <div class="mb-8 card p-6">
+                        <h3 class="text-lg font-serif text-gray-700 mb-4">Weekly Activity Graph</h3>
+                        <div
+                            class="bg-gray-50 border-2 border-black rounded-lg p-4 h-64 lg:h-80 flex items-center justify-center relative">
+                            <p class="text-gray-500 font-serif" id="chart-placeholder">Generate report to see chart.</p>
+                            <canvas id="weekly-chart-canvas" style="display: none;"></canvas>
+                        </div>
+                    </div>
+
+                    <h2 class="text-3xl font-serif text-gray-900 mb-6">Your Weekly Trend</h2>
+                    <p class="text-lg text-gray-600 mb-8">An automated summary of your activity for the past 7 days.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="p-6 card">
+                            <h3 class="text-lg font-serif text-gray-700">Blocked Frequency</h3>
+                            <p class="text-4xl font-bold text-gray-900 mt-2" id="trend-blocked-days">--</p>
+                            <p class="text-sm text-gray-600 mt-1">Days you reported 'Blocked' status this week.</p>
+                        </div>
+
+                    </div>
+
+                    <h3 class="text-2xl font-serif text-gray-900 mt-10 mb-6">Your Weekly Report</h3>
+                    <div id="weekly-ai-summary-card" class="card p-8">
+                        <div id="weekly-ai-summary-loader" class="loader mx-auto" style="display: none;"></div>
+                        <div id="weekly-ai-summary-content" class="prose-serif text-gray-700">
+                            <p class="text-gray-500">Click the button to generate your personal trend report.</p>
+                        </div>
+                    </div>
+                    <button id="btn-generate-weekly-trend" class="btn-primary w-full md:w-auto mt-6">
+                        Generate My Weekly Report
+                    </button>
+
+                </div>
+                <div id="page-team" style="display: none;">
+                    <button id="btn-back-to-home-from-team"
+                        class="mb-6 text-gray-600 hover:text-black font-medium transition-colors flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </button>
+                    <h2 class="text-3xl font-serif text-gray-900 mb-6">Team View</h2>
+                    <p class="text-lg text-gray-600 mb-8">Overview of all team members and their status for <span
+                            id="team-view-date" class="font-semibold"></span>.</p>
+
+                    <div id="team-grid-container"
+                        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        <div class="loader mx-auto"></div>
+                    </div>
+                </div>
+                <div id="page-settings" style="display: none;">
+                    <button id="btn-back-to-home-from-settings"
+                        class="mb-6 text-gray-600 hover:text-black font-medium transition-colors flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </button>
+                    <h2 class="text-3xl font-serif text-gray-900 mb-6">Settings</h2>
+
+                    <div class="space-y-8 max-w-2xl">
+                        <div class="p-6 card">
+                            <h3 class="text-xl font-serif text-gray-900 mb-4">Notification Preferences</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-700">Email Notifications</span>
+                                    <label class="switch"><input type="checkbox" checked><span
+                                            class="slider"></span></label>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-700">Push Notifications</span>
+                                    <label class="switch"><input type="checkbox" checked><span
+                                            class="slider"></span></label>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-700">Weekly Summary Email</span>
+                                    <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-6 card">
+                            <h3 class="text-xl font-serif text-gray-900 mb-4">Appearance</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-700">Dark Mode</span>
+                                    <label class="switch"><input type="checkbox"><span class="slider"></span></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="admin-settings-panel" class="p-6 card border-4 border-red-500" style="display: none;">
+                            <h3 class="text-xl font-serif text-red-700 mb-4">Admin Controls</h3>
+                            <p class="text-gray-700 mb-4">This is a destructive action and cannot be undone. This will
+                                delete all profiles, all updates, and all AI reports for this app instance.</p>
+                            <button id="btn-wipe-data" class="w-full btn-danger text-lg">
+                                Wipe All Application Data
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+        </div>
+    </div>
+    <div id="toast" class="">Toast Message</div>
+
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, serverTimestamp, setLogLevel, addDoc, query, orderBy, getDocs, updateDoc, increment, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+
+        // --- Firebase Config (remains the same) ---
+        let firebaseConfig;
+        if (typeof __firebase_config !== 'undefined' && __firebase_config !== null) {
+            try { firebaseConfig = JSON.parse(__firebase_config); } catch (e) { console.error("Failed to parse __firebase_config.", e); firebaseConfig = {}; }
+        }
+
+        if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+            firebaseConfig = {
+                apiKey: "AIzaSyCq1TjHwXNcXCQlQUoTUF61O3iqmULXMZ8",
+                authDomain: "nomeet-5bcc2.firebaseapp.com",
+                projectId: "nomeet-5bcc2",
+                storageBucket: "nomeet-5bcc2.firebasestorage.app",
+                messagingSenderId: "1067721591488",
+                appId: "1:1067721591488:web:27fd87358810afeca33b25",
+                measurementId: "G-18X2BL301Y"
+            };
+            console.warn("Using local firebaseConfig.");
+        }
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-hackathon-app';
+
+        // --- Global Variables ---
+        let auth, db, userId;
+        let userProfile = { name: 'Anonymous', avatar: 'avatar_1.svg' };
+        let teamUpdatesData = {};
+        let currentViewDate = new Date();
+        let currentThreadId = null;
+        let unsubscribeFromUpdates = () => { };
+        let unsubscribeFromReplies = () => { };
+        const ADMIN_USER_ID = "bQY0i1bcgAUgxJ5OTin4Qv8MrF63";
+        let unsubscribeFromAISummary = () => { };
+        let currentUserHasPosted = false;
+        let currentFilter = 'all';
+        let currentSearchQuery = '';
+
+        // --- MODIFIED: Colorful Avatars ---
+        const avatars = ['avatar_1.svg', 'avatar_2.svg', 'avatar_3.svg', 'avatar_4.svg', 'avatar_5.svg', 'avatar_6.svg', 'avatar_7.svg', 'avatar_8.svg'];
+        const avatarSvgs = {
+            'avatar_1.svg': `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#E67E22" /><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="50" fill="#fff" font-family="sans-serif">A</text></svg>`,
+            'avatar_2.svg': `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#2ECC71" /><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="50" fill="#fff" font-family="sans-serif">B</text></svg>`,
+            'avatar_3.svg': `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#3498DB" /><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="50" fill="#fff" font-family="sans-serif">C</text></svg>`,
+            'avatar_4.svg': `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#9B59B6" /><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="50" fill="#fff" font-family="sans-serif">D</text></svg>`,
+            'avatar_5.svg': `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#E74C3C" /><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="50" fill="#fff" font-family="sans-serif">E</text></svg>`,
+            'avatar_6.svg': `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#1ABC9C" /><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="50" fill="#fff" font-family="sans-serif">F</text></svg>`,
+            'avatar_7.svg': `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#F1C40F" /><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="50" fill="#fff" font-family="sans-serif">G</text></svg>`,
+            'avatar_8.svg': `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="50" fill="#34495E" /><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-size="50" fill="#fff" font-family="sans-serif">H</text></svg>`,
+        };
+        const defaultAvatar = 'avatar_1.svg';
+
+        // --- Wrap all JS in DOMContentLoaded listener ---
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- Page Element Refs ---
+            const pageHome = document.getElementById('page-home');
+            const pageNewUpdate = document.getElementById('page-new-update');
+            const pageProfile = document.getElementById('page-profile');
+            const pageThreadDetail = document.getElementById('page-thread-detail');
+            const pageWeeklyTrend = document.getElementById('page-weekly-trend');
+            const pageTeam = document.getElementById('page-team');
+            const pageSettings = document.getElementById('page-settings');
+
+            const emptyStateMessage = document.getElementById('empty-state-message');
+            const noRepliesMessage = document.getElementById('no-replies-message');
+            const aiOutputSection = document.getElementById('ai-output');
+            const aiEmptyState = document.getElementById('ai-empty-state');
+            const userIdDisplay = document.getElementById('user-id-display');
+            const generateButton = document.getElementById('generate-summary-btn');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const recordButton = document.getElementById('record-my-update');
+            const doneTextarea = document.getElementById('update-done-textarea');
+            const doingTextarea = document.getElementById('update-doing-textarea');
+            const blockersTextarea = document.getElementById('update-blockers-textarea');
+
+            const adminControls = document.getElementById('admin-controls');
+            const adminBadge = document.getElementById('admin-badge');
+            const publishControls = document.getElementById('publish-controls');
+
+            const adminRemarksCard = document.getElementById('admin-remarks-card');
+            const adminRemarksContent = document.getElementById('admin-remarks-content');
+            const adminRemarksTextarea = document.getElementById('admin-remarks-textarea');
+
+            const navBtnHome = document.getElementById('nav-btn-home');
+            const navBtnProfile = document.getElementById('nav-btn-profile');
+            const navBtnTrends = document.getElementById('nav-btn-trends');
+            const navBtnTeam = document.getElementById('nav-btn-team');
+            const navBtnSettings = document.getElementById('nav-btn-settings');
+            const headerBtnProfile = document.getElementById('header-btn-profile');
+            const datePicker = document.getElementById('calendar-date-picker');
+
+            const ctaTitle = document.getElementById('cta-title');
+            const btnNewUpdate = document.getElementById('btn-new-update');
+            const btnEditUpdate = document.getElementById('btn-edit-update');
+            const ctaDate = document.getElementById('cta-date');
+
+            const teamViewDate = document.getElementById('team-view-date');
+            const teamGridContainer = document.getElementById('team-grid-container');
+
+            const adminSettingsPanel = document.getElementById('admin-settings-panel');
+            const btnWipeData = document.getElementById('btn-wipe-data');
+
+            const trendBlockedDays = document.getElementById('trend-blocked-days');
+
+            const searchBar = document.getElementById('search-bar');
+
+            // --- Page Navigation ---
+            function setActiveNav(activeButton) {
+                document.querySelectorAll('.nav-link').forEach(link => {
+                    link.classList.remove('bg-black', 'text-white');
+                    link.classList.add('text-gray-700', 'hover:bg-gray-100');
+                });
+                activeButton.classList.add('bg-black', 'text-white');
+                activeButton.classList.remove('text-gray-700', 'hover:bg-gray-100');
+            }
+
+            function navigateTo(pageId) {
+                // Hide all pages
+                pageHome.style.display = 'none';
+                pageNewUpdate.style.display = 'none';
+                pageProfile.style.display = 'none';
+                pageThreadDetail.style.display = 'none';
+                pageWeeklyTrend.style.display = 'none';
+                pageTeam.style.display = 'none';
+                pageSettings.style.display = 'none';
+
+                const page = document.getElementById(pageId);
+                if (page) {
+                    page.style.display = 'block';
+                } else {
+                    console.error("Navigation error: Page ID not found", pageId);
+                    pageHome.style.display = 'block'; // Default to home
+                }
+
+                // Update active nav state
+                if (pageId === 'page-home') {
+                    setActiveNav(navBtnHome);
+                } else if (pageId === 'page-profile') {
+                    setActiveNav(navBtnProfile);
+                } else if (pageId === 'page-weekly-trend') {
+                    setActiveNav(navBtnTrends);
+                } else if (pageId === 'page-team') {
+                    setActiveNav(navBtnTeam);
+                    renderTeamView(); // Load data on nav
+                } else if (pageId === 'page-settings') {
+                    setActiveNav(navBtnSettings);
+                } else {
+                    // For page-new-update or page-thread-detail, keep 'Dashboard' active
+                    setActiveNav(navBtnHome);
+                }
+
+                if (pageId === 'page-new-update') loadMyUpdate();
+                if (pageId === 'page-profile') loadProfilePage();
+
+                if (pageId !== 'page-thread-detail') {
+                    if (unsubscribeFromReplies) unsubscribeFromReplies();
+                    document.getElementById('thread-locked-message')?.remove();
+                }
+            }
+
+            // --- Setup Navigation Event Listeners ---
+            navBtnHome.addEventListener('click', (e) => { e.preventDefault(); navigateTo('page-home'); });
+            navBtnProfile.addEventListener('click', (e) => { e.preventDefault(); navigateTo('page-profile'); });
+            navBtnTrends.addEventListener('click', (e) => { e.preventDefault(); navigateTo('page-weekly-trend'); });
+            navBtnTeam.addEventListener('click', (e) => { e.preventDefault(); navigateTo('page-team'); });
+            navBtnSettings.addEventListener('click', (e) => { e.preventDefault(); navigateTo('page-settings'); });
+            headerBtnProfile.addEventListener('click', (e) => { e.preventDefault(); navigateTo('page-profile'); });
+
+            btnNewUpdate.addEventListener('click', () => navigateTo('page-new-update'));
+            btnEditUpdate.addEventListener('click', () => navigateTo('page-new-update'));
+
+            document.getElementById('btn-back-to-home-from-add').addEventListener('click', () => navigateTo('page-home'));
+            document.getElementById('btn-back-to-home-from-profile').addEventListener('click', () => navigateTo('page-home'));
+            document.getElementById('btn-back-to-home-from-detail').addEventListener('click', () => navigateTo('page-home'));
+            document.getElementById('btn-back-to-home-from-trend').addEventListener('click', () => navigateTo('page-home'));
+            document.getElementById('btn-back-to-home-from-team').addEventListener('click', () => navigateTo('page-home'));
+            document.getElementById('btn-back-to-home-from-settings').addEventListener('click', () => navigateTo('page-home'));
+
+            // --- Date Picker Logic ---
+            datePicker.addEventListener('change', () => {
+                const selectedDate = new Date(datePicker.value);
+                const adjustedDate = new Date(selectedDate.getTime() + selectedDate.getTimezoneOffset() * 60000);
+                currentViewDate = adjustedDate;
+
+                updateCtaButton(formatDate(currentViewDate));
+                listenForTeamUpdates();
+
+                aiOutputSection.style.display = 'none';
+                aiEmptyState.style.display = 'block';
+                publishControls.style.display = 'none';
+                adminRemarksCard.style.display = 'none';
+            });
+
+            function formatDate(date) {
+                return date.toISOString().split('T')[0];
+            }
+
+            function updateCtaButton(dateString) {
+                ctaDate.textContent = dateString;
+                document.getElementById('add-thread-date').textContent = dateString;
+            }
+
+            // --- Collection Path Functions ---
+            function getCollectionPathForDate(date) {
+                const dateString = formatDate(date);
+                document.getElementById('thread-list-title').textContent = `${dateString} Threads`;
+                return `/artifacts/${appId}/public/data/standupArchive/${dateString}/updates`;
+            }
+
+            function getAISummaryDocPath(date) {
+                const dateString = formatDate(date);
+                return `/artifacts/${appId}/public/data/standupArchive/${dateString}/summary/report`;
+            }
+            function getProfileCollectionPath() {
+                return `/artifacts/${appId}/public/data/userProfiles`;
+            }
+            function getAppArtifactsPath() {
+                return `/artifacts/${appId}`;
+            }
+
+            // --- Toast Notification Function ---
+            function showToast(message, isError = false) {
+                const toast = document.getElementById('toast');
+                toast.textContent = message;
+                toast.style.backgroundColor = isError ? '#b91c1c' : '#111827';
+                toast.style.color = isError ? '#fef2f2' : '#f9fafb';
+                toast.className = "show";
+                setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+            }
+
+            // --- Initialize Firebase ---
+            try {
+                const app = initializeApp(firebaseConfig);
+                const analytics = getAnalytics(app);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                setLogLevel('Debug');
+                console.log("Firebase Initialized.");
+            } catch (e) {
+                console.error("Error initializing Firebase: ", e);
+                showToast("Error: Could not connect to Firebase. Check config.", true);
+            }
+
+            // --- Authentication ---
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    console.log("User authenticated with ID:", userId);
+
+                    if (userId === ADMIN_USER_ID) {
+                        console.log("ADMIN LOGGED IN");
+                        adminControls.style.display = 'flex';
+                        adminBadge.style.display = 'inline-flex';
+                        adminSettingsPanel.style.display = 'block';
+                    } else {
+                        console.log("Regular user logged in");
+                        adminControls.style.display = 'none';
+                        adminBadge.style.display = 'none';
+                        adminSettingsPanel.style.display = 'none';
+                    }
+
+                    datePicker.value = formatDate(currentViewDate);
+                    updateCtaButton(formatDate(currentViewDate));
+
+                    await loadUserProfile();
+                    listenForTeamUpdates();
+                    populateAvatarPicker();
+                    navigateTo('page-home');
+                } else {
+                    console.log("No user found, attempting to sign in...");
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token !== null) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (error) { console.error("Sign-In Error:", error); }
+                }
+            });
+
+            // --- Profile Functions ---
+            async function loadUserProfile() {
+                if (!db || !userId) return;
+                if (userIdDisplay) userIdDisplay.textContent = userId;
+
+                const profileRef = doc(db, getProfileCollectionPath(), userId);
+                try {
+                    const docSnap = await getDoc(profileRef);
+                    if (docSnap.exists()) {
+                        userProfile = docSnap.data();
+                    } else {
+                        console.log("No profile found, creating one with defaults.");
+                        userProfile = { name: `User ${userId.substring(0, 5)}`, avatar: defaultAvatar };
+                        await setDoc(profileRef, userProfile);
+                    }
+                } catch (error) { console.error("Error loading user profile:", error); }
+            }
+
+            function loadProfilePage() {
+                document.getElementById('profile-name').value = userProfile.name || '';
+                const avatarPicker = document.getElementById('avatar-picker');
+                avatarPicker.querySelectorAll('.avatar-picker-option').forEach(el => {
+                    el.classList.toggle('selected', el.dataset.avatar === userProfile.avatar);
+                });
+            }
+
+            function populateAvatarPicker() {
+                const avatarPicker = document.getElementById('avatar-picker');
+                avatarPicker.innerHTML = '';
+                avatars.forEach(avatarKey => {
+                    const div = document.createElement('div');
+                    div.className = 'avatar-picker-option';
+                    div.dataset.avatar = avatarKey;
+                    div.innerHTML = avatarSvgs[avatarKey] || avatarSvgs[defaultAvatar];
+                    if (avatarKey === userProfile.avatar) div.classList.add('selected');
+                    div.addEventListener('click', () => {
+                        avatarPicker.querySelectorAll('.avatar-picker-option').forEach(el => el.classList.remove('selected'));
+                        div.classList.add('selected');
+                    });
+                    avatarPicker.appendChild(div);
+                });
+            }
+
+            document.getElementById('save-profile').addEventListener('click', async () => {
+                const newName = document.getElementById('profile-name').value;
+                const selectedAvatarEl = document.querySelector('.avatar-picker-option.selected');
+                const newAvatar = selectedAvatarEl ? selectedAvatarEl.dataset.avatar : userProfile.avatar;
+                if (newName.trim() === "") { showToast("Please enter a name.", true); return; }
+
+                userProfile.name = newName;
+                userProfile.avatar = newAvatar;
+                const profileRef = doc(db, getProfileCollectionPath(), userId);
+                try {
+                    await setDoc(profileRef, userProfile);
+                    showToast("Profile saved successfully!");
+                    navigateTo('page-home');
+                    listenForTeamUpdates();
+                } catch (error) { console.error("Error saving profile:", error); }
+            });
+
+            async function getAllUserProfiles() {
+                const profiles = {};
+                try {
+                    const querySnapshot = await getDocs(collection(db, getProfileCollectionPath()));
+                    querySnapshot.forEach((doc) => { profiles[doc.id] = doc.data(); });
+                } catch (error) { console.error("Error fetching all profiles:", error); }
+                return profiles;
+            }
+
+            // --- Firestore Real-time Listeners ---
+            async function listenForTeamUpdates() {
+                if (!db || !userId) return;
+
+                if (unsubscribeFromUpdates) unsubscribeFromUpdates();
+                if (unsubscribeFromAISummary) unsubscribeFromAISummary();
+
+                const allProfiles = await getAllUserProfiles();
+
+                const updatesCollectionRef = collection(db, getCollectionPathForDate(currentViewDate));
+                unsubscribeFromUpdates = onSnapshot(updatesCollectionRef, (querySnapshot) => {
+                    teamUpdatesData = {};
+                    currentUserHasPosted = false;
+
+                    let teamBlockersCount = 0;
+                    let myStatus = "--";
+
+                    if (querySnapshot.empty) {
+                        emptyStateMessage.style.display = 'block';
+                    } else {
+                        emptyStateMessage.style.display = 'none';
+                        querySnapshot.forEach((doc) => {
+                            const data = doc.data();
+                            if (doc.id === userId) {
+                                currentUserHasPosted = true;
+                                myStatus = data.status || 'on-track';
+                            }
+                            if (data.status === 'blocked') {
+                                teamBlockersCount++;
+                            }
+
+                            teamUpdatesData[doc.id] = {
+                                ...data,
+                                profile: allProfiles[doc.id] || { name: `User ${doc.id.substring(0, 5)}`, avatar: defaultAvatar }
+                            };
+                        });
+                    }
+
+                    if (currentUserHasPosted) {
+                        btnNewUpdate.style.display = 'none';
+                        btnEditUpdate.style.display = 'block';
+                        ctaTitle.innerHTML = `Edit your update for <span id="cta-date" class="font-bold">${formatDate(currentViewDate)}</span>?`;
+                    } else {
+                        btnNewUpdate.style.display = 'block';
+                        btnEditUpdate.style.display = 'none';
+                        ctaTitle.innerHTML = `Ready to post your update for <span id="cta-date" class="font-bold">${formatDate(currentViewDate)}</span>?`;
+                    }
+
+                    document.getElementById('stat-my-status').textContent = myStatus.charAt(0).toUpperCase() + myStatus.slice(1);
+                    document.getElementById('stat-team-blockers').textContent = teamBlockersCount;
+
+                    renderTeamUpdatesList();
+
+                }, (error) => { console.error("Error listening to updates: ", error); });
+
+                const aiSummaryDocRef = doc(db, getAISummaryDocPath(currentViewDate));
+                unsubscribeFromAISummary = onSnapshot(aiSummaryDocRef, (docSnap) => {
+                    const teamVibeStat = document.getElementById('stat-team-vibe');
+
+                    if (docSnap.exists()) {
+                        const summaryData = docSnap.data();
+                        const isPublished = summaryData.isPublished;
+                        const isAdmin = (userId === ADMIN_USER_ID);
+
+                        teamVibeStat.textContent = summaryData.teamVibe || "--";
+
+                        if (isPublished || isAdmin) {
+                            displayAIOutput(summaryData);
+                            aiEmptyState.style.display = 'none';
+
+                            if (isAdmin && !isPublished) {
+                                publishControls.style.display = 'flex';
+                            } else {
+                                publishControls.style.display = 'none';
+                            }
+                        } else {
+                            aiOutputSection.style.display = 'none';
+                            aiEmptyState.style.display = 'block';
+                            teamVibeStat.textContent = "--";
+                        }
+                    } else {
+                        aiOutputSection.style.display = 'none';
+                        aiEmptyState.style.display = 'block';
+                        teamVibeStat.textContent = "--";
+                    }
+                });
+            }
+
+            // Filter Bar Logic
+            document.getElementById('filter-bar').addEventListener('click', (e) => {
+                const target = e.target.closest('.filter-btn');
+                if (!target) return;
+
+                document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+                target.classList.add('active');
+                currentFilter = target.dataset.filter;
+
+                renderTeamUpdatesList();
+            });
+
+            // Search Bar Logic
+            searchBar.addEventListener('input', () => {
+                currentSearchQuery = searchBar.value.toLowerCase();
+                renderTeamUpdatesList();
+            });
+
+            // Render function for thread list
+            function renderTeamUpdatesList() {
+                const updatesListEl = document.getElementById('team-updates-list');
+                updatesListEl.innerHTML = "";
+
+                let hasVisibleItems = false;
+                const sortedKeys = Object.keys(teamUpdatesData).sort((a, b) => {
+                    const timeA = teamUpdatesData[a].timestamp?.seconds || 0;
+                    const timeB = teamUpdatesData[b].timestamp?.seconds || 0;
+                    return timeB - timeA; // Sort descending
+                });
+
+                const filteredKeys = sortedKeys.filter(docId => {
+                    const data = teamUpdatesData[docId];
+                    const profile = data.profile;
+
+                    // Filter by status
+                    if (currentFilter !== 'all' && data.status !== currentFilter) {
+                        return false;
+                    }
+
+                    // Filter by search query
+                    if (currentSearchQuery === '') return true;
+
+                    const name = (profile.name || '').toLowerCase();
+                    const done = (data.done || '').toLowerCase();
+                    const doing = (data.doing || '').toLowerCase();
+                    const blockers = (data.blockers || '').toLowerCase();
+
+                    return name.includes(currentSearchQuery) ||
+                        done.includes(currentSearchQuery) ||
+                        doing.includes(currentSearchQuery) ||
+                        blockers.includes(currentSearchQuery);
+                });
+
+                for (const docId of filteredKeys) {
+                    hasVisibleItems = true;
+                    const data = teamUpdatesData[docId];
+                    const docProfile = data.profile;
+
+                    const updateCard = document.createElement('div');
+                    updateCard.className = "card p-6 thread-list-card";
+                    updateCard.dataset.threadId = docId;
+
+                    let nameClass = "text-lg font-serif text-gray-800";
+                    if (docId === userId) {
+                        nameClass = "text-lg font-serif text-black";
+                        updateCard.classList.add("border-4", "border-black");
+                    }
+
+                    let statusBadge = '';
+                    if (data.status === 'on-track') {
+                        statusBadge = `<span class="status-badge status-on-track">On Track</span>`;
+                    } else if (data.status === 'delayed') {
+                        statusBadge = `<span class="status-badge status-delayed">Delayed</span>`;
+                    } else if (data.status === 'blocked') {
+                        statusBadge = `<span class="status-badge status-blocked">Blocked</span>`;
+                    }
+
+                    let contradictionBadge = '';
+                    if (data.status === 'on-track' && data.blockers && data.blockers.trim() !== "") {
+                        contradictionBadge = `
+                        <div class="contradiction-badge mt-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.765 1.36-.214 3.08-1.742 3.08H4.42c-1.528 0-2.507-1.72-1.742-3.08l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-3a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                            <span>Status Mismatch?</span>
+                        </div>`;
+                    }
+
+                    let lockIcon = '';
+                    if (data.isLocked) {
+                        lockIcon = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-500 ml-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" /></svg>`;
+                    }
+
+                    updateCard.innerHTML = `
+                        <div class="flex items-start space-x-4">
+                            <div class="avatar-small">
+                                ${avatarSvgs[docProfile.avatar] || avatarSvgs[defaultAvatar]}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                    <h3 class="${nameClass} flex items-center">
+                                        ${docProfile.name} ${docId === userId ? '(You)' : ''}
+                                        ${lockIcon}
+                                    </h3>
+                                    ${statusBadge}
+                                </div>
+                                <p class="text-xs font-light text-gray-500 mt-1">
+                                    ${data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : 'Just now'}
+                                </p>
+
+                                <div class="mt-4 space-y-3">
+                                    ${data.done ? `<div>
+                                        <h4 class="font-semibold text-sm text-gray-600">Accomplishments:</h4>
+                                        <p class="thread-content-section">${data.done}</p>
+                                    </div>` : ''}
+                                    ${data.doing ? `<div>
+                                        <h4 class="font-semibold text-sm text-gray-600">Current Focus:</h4>
+                                        <p class="thread-content-section">${data.doing}</p>
+                                    </div>` : ''}
+                                    ${data.blockers ? `<div>
+                                        <h4 class="font-semibold text-sm text-black">Obstacles:</h4>
+                                        <p class="thread-content-section border-l-black">${data.blockers}</p>
+                                    </div>` : ''}
+                                </div>
+
+                                ${contradictionBadge}
+                                
+                                <div class="flex items-center justify-end mt-3">
+                                    <div class="flex items-center space-x-1 text-sm text-gray-500 hover:text-black">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.719A11.94 11.94 0 012 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                                        <span>${data.replyCount || 0}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    updateCard.addEventListener('click', () => openThreadDetail(docId));
+                    updatesListEl.appendChild(updateCard);
+                }
+
+                if (!hasVisibleItems) {
+                    if (currentSearchQuery !== '') {
+                        updatesListEl.innerHTML = `<p class="text-center text-gray-500 py-6">No threads match your search for "${currentSearchQuery}".</p>`;
+                    } else if (Object.keys(teamUpdatesData).length > 0) {
+                        updatesListEl.innerHTML = `<p class="text-center text-gray-500 py-6">No threads match this filter.</p>`;
+                    }
+                }
+            }
+
+
+            // --- Load My Own Update ---
+            async function loadMyUpdate() {
+                if (!db || !userId) return;
+
+                document.getElementById('add-thread-date').textContent = formatDate(currentViewDate);
+                document.getElementById('add-thread-user-name').textContent = userProfile.name;
+                document.getElementById('add-thread-user-avatar').innerHTML = avatarSvgs[userProfile.avatar] || avatarSvgs[defaultAvatar];
+
+                const myUpdateRef = doc(db, getCollectionPathForDate(currentViewDate), userId);
+                try {
+                    const docSnap = await getDoc(myUpdateRef);
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        doneTextarea.value = data.done || "";
+                        doingTextarea.value = data.doing || "";
+                        blockersTextarea.value = data.blockers || "";
+
+                        const statusRadio = document.querySelector(`input[name="update-status"][value="${data.status || 'on-track'}"]`);
+                        if (statusRadio) statusRadio.checked = true;
+                    } else {
+                        // Clear fields for new post
+                        doneTextarea.value = "";
+                        doingTextarea.value = "";
+                        blockersTextarea.value = "";
+                        document.querySelector('input[name="update-status"][value="on-track"]').checked = true;
+                    }
+                } catch (error) { console.error("Error loading my update: ", error); }
+            }
+
+            // --- Submit My Update ---
+            document.getElementById('submit-my-update').addEventListener('click', async () => {
+                if (!db || !userId) return;
+
+                const doneText = doneTextarea.value;
+                const doingText = doingTextarea.value;
+                const blockersText = blockersTextarea.value;
+                const statusValue = document.querySelector('input[name="update-status"]:checked').value;
+
+                if (doneText.trim() === "" && doingText.trim() === "") {
+                    showToast("Please fill out what you've done or what you're doing.", true);
+                    return;
+                }
+
+                const myUpdateRef = doc(db, getCollectionPathForDate(currentViewDate), userId);
+                const submitButton = document.getElementById('submit-my-update');
+                submitButton.disabled = true;
+                submitButton.textContent = "Submitting...";
+
+                try {
+                    const docSnap = await getDoc(myUpdateRef);
+                    const currentData = docSnap.exists() ? docSnap.data() : {};
+                    const currentReplyCount = currentData.replyCount || 0;
+                    const currentLockState = currentData.isLocked || false; // Preserve lock state
+
+                    await setDoc(myUpdateRef, {
+                        done: doneText,
+                        doing: doingText,
+                        blockers: blockersText,
+                        status: statusValue,
+                        timestamp: serverTimestamp(),
+                        replyCount: currentReplyCount,
+                        isLocked: currentLockState
+                    }, { merge: true });
+
+                    showToast("Thread submitted successfully!");
+                    navigateTo('page-home');
+                } catch (error) {
+                    console.error("Error submitting update: ", error);
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.textContent = "Submit Thread";
+                }
+            });
+
+            // --- Thread Detail Page Functions ---
+            async function openThreadDetail(threadId) {
+                currentThreadId = threadId;
+                const mainThreadContent = document.getElementById('thread-detail-main');
+                mainThreadContent.innerHTML = `<div class="loader mx-auto"></div>`;
+                navigateTo('page-thread-detail');
+
+                const threadRef = doc(db, getCollectionPathForDate(currentViewDate), threadId);
+                const threadSnap = await getDoc(threadRef);
+                const profileRef = doc(db, getProfileCollectionPath(), threadId);
+                const profileSnap = await getDoc(profileRef);
+                const profile = profileSnap.exists() ? profileSnap.data() : { name: `User ${threadId.substring(0, 5)}`, avatar: defaultAvatar };
+
+                if (threadSnap.exists()) {
+                    const data = threadSnap.data();
+                    const isLocked = data.isLocked || false;
+
+                    let statusBadge = '';
+                    if (data.status === 'on-track') {
+                        statusBadge = `<span class="status-badge status-on-track">On Track</span>`;
+                    } else if (data.status === 'delayed') {
+                        statusBadge = `<span class="status-badge status-delayed">Delayed</span>`;
+                    } else if (data.status === 'blocked') {
+                        statusBadge = `<span class="status-badge status-blocked">Blocked</span>`;
+                    }
+
+                    let adminLockButton = '';
+                    if (userId === ADMIN_USER_ID) {
+                        adminLockButton = `<button id="btn-toggle-lock" class="btn-secondary text-sm ${isLocked ? 'bg-black text-white' : ''}">
+                            ${isLocked ? 'Unlock Thread' : 'Lock Thread'}
+                        </button>`;
+                    }
+
+                    mainThreadContent.innerHTML = `
+                        <div class="flex items-start space-x-4">
+                            <div class="avatar-medium">
+                                ${avatarSvgs[profile.avatar] || avatarSvgs[defaultAvatar]}
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                                    <h3 class="text-xl font-serif text-gray-900">${profile.name}</h3>
+                                    <div class="flex items-center gap-4">
+                                        ${statusBadge}
+                                        ${adminLockButton}
+                                    </div>
+                                </div>
+                                <p class="text-xs font-light text-gray-500 mb-4">Posted: ${data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : 'Just now'}</p>
+                                
+                                <div class="mt-4 space-y-4">
+                                    ${data.done ? `<div>
+                                        <h4 class="font-semibold text-md font-serif text-gray-700">Accomplishments:</h4>
+                                        <p class="mt-1 text-gray-700 whitespace-pre-wrap font-serif text-lg">${data.done}</p>
+                                    </div>` : ''}
+                                    ${data.doing ? `<div>
+                                        <h4 class="font-semibold text-md font-serif text-gray-700">Current Focus:</h4>
+                                        <p class="mt-1 text-gray-700 whitespace-pre-wrap font-serif text-lg">${data.doing}</p>
+                                    </div>` : ''}
+                                    ${data.blockers ? `<div>
+                                        <h4 class="font-semibold text-md font-serif text-black">Obstacles:</h4>
+                                        <p class="mt-1 text-gray-700 whitespace-pre-wrap font-serif text-lg">${data.blockers}</p>
+                                    </div>` : ''}
+                                    ${!data.done && !data.doing && !data.blockers && data.update ? `<div><p class="mt-1 text-gray-700 whitespace-pre-wrap font-serif text-lg">${data.update}</p></div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    if (userId === ADMIN_USER_ID) {
+                        document.getElementById('btn-toggle-lock').addEventListener('click', async () => {
+                            const newLockState = !isLocked;
+                            const button = document.getElementById('btn-toggle-lock');
+                            button.disabled = true;
+                            button.textContent = newLockState ? 'Locking...' : 'Unlocking...';
+
+                            try {
+                                await updateDoc(threadRef, { isLocked: newLockState });
+                                showToast(newLockState ? 'Thread locked' : 'Thread unlocked');
+                                openThreadDetail(threadId);
+                            } catch (e) {
+                                showToast('Error updating lock status', true);
+                                button.disabled = false;
+                                button.textContent = isLocked ? 'Unlock Thread' : 'Lock Thread';
+                            }
+                        });
+                    }
+
+                    const replyForm = document.querySelector('#page-thread-detail .card:last-child');
+                    const lockedMessage = document.createElement('div');
+                    lockedMessage.id = 'thread-locked-message';
+                    lockedMessage.className = 'text-center p-8 card text-gray-600 font-serif';
+                    lockedMessage.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto mb-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" /></svg> This thread has been locked by an admin. Replying is disabled.`;
+
+                    document.getElementById('thread-locked-message')?.remove();
+
+                    if (isLocked) {
+                        replyForm.style.display = 'none';
+                        replyForm.parentElement.appendChild(lockedMessage);
+                    } else {
+                        replyForm.style.display = 'block';
+                    }
+
+                } else {
+                    mainThreadContent.innerHTML = `<p class="text-red-500">Error: Could not load thread.</p>`;
+                }
+                listenForThreadReplies(threadId);
+            }
+
+            async function listenForThreadReplies(threadId) {
+                if (unsubscribeFromReplies) unsubscribeFromReplies();
+                const repliesListEl = document.getElementById('thread-replies-list');
+                repliesListEl.innerHTML = '';
+                const allProfiles = await getAllUserProfiles();
+                const repliesPath = `${getCollectionPathForDate(currentViewDate)}/${threadId}/replies`;
+                const repliesQuery = query(collection(db, repliesPath), orderBy("timestamp", "asc"));
+
+                unsubscribeFromReplies = onSnapshot(repliesQuery, (querySnapshot) => {
+                    repliesListEl.innerHTML = '';
+                    if (querySnapshot.empty) { noRepliesMessage.style.display = 'block'; return; }
+
+                    noRepliesMessage.style.display = 'none';
+                    querySnapshot.forEach((doc) => {
+                        const data = doc.data();
+                        const replyProfile = allProfiles[data.authorId] || { name: `User ${data.authorId.substring(0, 5)}`, avatar: defaultAvatar };
+
+                        const replyCard = document.createElement('div');
+                        replyCard.className = "flex items-start space-x-3 p-4 bg-gray-100 rounded-lg";
+                        replyCard.innerHTML = `
+                            <div class="avatar-small">
+                                ${avatarSvgs[replyProfile.avatar] || avatarSvgs[defaultAvatar]}
+                            </div>
+                            <div class="flex-1">
+                                <div class="flex items-center space-x-2">
+                                    <h4 class="text-md font-semibold text-gray-800">${replyProfile.name}</h4>
+                                    <span class="text-xs font-light text-gray-500">${data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : ''}</span>
+                                </div>
+                                <p class="mt-1 text-gray-700 font-serif">${data.reply}</p>
+                            </div>
+                        `;
+                        repliesListEl.appendChild(replyCard);
+                    });
+                }, (error) => { console.error("Error listening for replies:", error); });
+            }
+
+            document.getElementById('submit-reply').addEventListener('click', async () => {
+                const replyText = document.getElementById('reply-textarea').value;
+                if (replyText.trim() === "") { showToast("Please write a reply.", true); return; }
+
+                const repliesPath = `${getCollectionPathForDate(currentViewDate)}/${currentThreadId}/replies`;
+                const replyButton = document.getElementById('submit-reply');
+                replyButton.disabled = true;
+                replyButton.textContent = "Posting...";
+
+                try {
+                    await addDoc(collection(db, repliesPath), {
+                        reply: replyText,
+                        authorId: userId,
+                        timestamp: serverTimestamp()
+                    });
+
+                    const threadRef = doc(db, getCollectionPathForDate(currentViewDate), currentThreadId);
+                    await updateDoc(threadRef, {
+                        replyCount: increment(1)
+                    });
+
+                    document.getElementById('reply-textarea').value = '';
+                    showToast("Reply posted!");
+                } catch (error) {
+                    console.error("Error posting reply:", error);
+                } finally {
+                    replyButton.disabled = false;
+                    replyButton.textContent = "Submit Reply";
+                }
+            });
+
+            // --- Speech Recognition ---
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+
+            if (!recognition) {
+                recordButton.disabled = true;
+                recordButton.textContent = "Voice Not Supported";
+            } else {
+                recognition.continuous = false;
+                recognition.lang = 'en-US';
+
+                let activeTextarea = doneTextarea;
+                doneTextarea.addEventListener('focus', () => activeTextarea = doneTextarea);
+                doingTextarea.addEventListener('focus', () => activeTextarea = doingTextarea);
+                blockersTextarea.addEventListener('focus', () => activeTextarea = blockersTextarea);
+
+                recordButton.addEventListener('click', () => {
+                    const recordText = 'Record';
+                    const listeningText = 'Listening...';
+                    const recordButtonText = recordButton.querySelector('span');
+                    if (recordButtonText.textContent === recordText) {
+                        try {
+                            recognition.start();
+                            recordButtonText.textContent = listeningText;
+                            recordButton.classList.add('bg-gray-200');
+                            showToast(`Listening... (will fill '${activeTextarea.id.split('-')[1]}')`);
+                        } catch (e) { showToast('Mic error. Try again.', true); }
+                    } else {
+                        recognition.stop();
+                        recordButtonText.textContent = recordText;
+                        recordButton.classList.remove('bg-gray-200');
+                    }
+                });
+                recognition.onresult = (event) => {
+                    activeTextarea.value = event.results[0][0].transcript;
+                    showToast('Transcript captured!');
+                };
+                recognition.onspeechend = () => { recognition.stop(); recordButton.querySelector('span').textContent = 'Record'; recordButton.classList.remove('bg-gray-200'); };
+                recognition.onerror = (event) => { console.error("Speech error", event.error); recordButton.querySelector('span').textContent = 'Record'; recordButton.classList.remove('bg-gray-200'); };
+            }
+
+            // --- Gemini AI Integration ---
+            // -----------------------------------------------------------------
+            // --- MODIFICATION: KEY HAS BEEN INSERTED ---
+            // -----------------------------------------------------------------
+            const geminiApiKey = "AIzaSyAZbGKFhPtR7r5f6akdSi5x6_sLkjXSMK4";
+            // -----------------------------------------------------------------
+
+            generateButton.addEventListener('click', getAISummary);
+
+            // --- Clarify My Update (Gemini) ---
+            document.getElementById('clarify-my-update').addEventListener('click', async (event) => {
+                const button = event.currentTarget;
+                const doneText = doneTextarea.value;
+                const doingText = doingTextarea.value;
+                const blockersText = blockersTextarea.value;
+
+                if (doneText.trim() === "" && doingText.trim() === "" && blockersText.trim() === "") {
+                    showToast("Write something to clarify first!", true);
+                    return;
+                }
+
+                button.disabled = true;
+                const buttonText = button.querySelector('span');
+                if (buttonText) buttonText.textContent = "Clarifying...";
+
+                const systemPrompt = `You are an expert editor. The user will provide 3 inputs: "Completed", "In Progress", and "Obstacles". Rewrite each one into a clear, professional, and concise bulleted list. Maintain the separation between the three fields.
+                You MUST respond ONLY with a single, valid JSON object following this schema:
+                {
+                    "done": "The clarified 'Completed' text as a bulleted list.",
+                    "doing": "The clarified 'In Progress' text as a bulleted list.",
+                    "blockers": "The clarified 'Obstacles' text as a bulleted list."
+                }`;
+
+                const userQuery = `Completed: "${doneText}"\n\nIn Progress: "${doingText}"\n\nObstacles: "${blockersText}"`;
+
+                // MODIFIED: Reverted to the model from the "working" file
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiApiKey}`;
+
+                // MODIFIED: Re-added generationConfig as required by this model
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "done": { "type": "STRING" },
+                                "doing": { "type": "STRING" },
+                                "blockers": { "type": "STRING" }
+                            },
+                            required: ["done", "doing", "blockers"]
+                        }
+                    }
+                };
+
+                try {
+                    const response = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                    const result = await response.json();
+
+                    if (!result.candidates || !result.candidates[0].content.parts[0].text) {
+                        throw new Error("Invalid AI response structure.");
+                    }
+                    let jsonText = result.candidates[0].content.parts[0].text;
+
+                    const data = JSON.parse(jsonText);
+                    if (data.done) doneTextarea.value = data.done;
+                    if (data.doing) doingTextarea.value = data.doing;
+                    if (data.blockers) blockersTextarea.value = data.blockers;
+                    showToast("Update clarified!");
+
+                } catch (error) {
+                    console.error("Error clarifying update:", error);
+                    showToast(`Error: ${error.message}.`, true);
+                } finally {
+                    button.disabled = false;
+                    if (buttonText) buttonText.textContent = "Clarify";
+                }
+            });
+
+            // --- Generate Summary (Gemini) ---
+            async function getAISummary() {
+                generateButton.disabled = true;
+                generateButton.classList.add('opacity-50');
+                loadingSpinner.style.display = 'block';
+                aiOutputSection.style.display = 'none';
+
+                if (Object.keys(teamUpdatesData).length === 0) {
+                    document.getElementById('summary-content').innerHTML = `<p class="text-gray-600">Please add at least one thread before summarizing.</p>`;
+                    document.getElementById('vibe-content').textContent = 'N/A';
+                    document.getElementById('takeaways-content').innerHTML = '';
+                    document.getElementById('suggestions-content').innerHTML = '';
+                    aiOutputSection.style.display = 'grid';
+                    resetLoadingState();
+                    return;
+                }
+
+                let allUpdates = "";
+                for (const id in teamUpdatesData) {
+                    const data = teamUpdatesData[id];
+                    const name = data.profile ? data.profile.name : `User ${id.substring(0, 6)}`;
+                    // Use the same labels as the input form for consistency
+                    allUpdates += `Update from ${name} (Status: ${data.status || 'N/A'}):\n`;
+                    allUpdates += `Accomplishments: "${data.done || 'N/A'}"\n`;
+                    allUpdates += `Current Focus: "${data.doing || 'N/A'}"\n`;
+                    allUpdates += `Obstacles: "${data.blockers || 'None'}"\n\n`;
+                }
+
+                const systemPrompt = `You are an expert project manager. Analyze the following team updates.
+                You MUST respond ONLY with a single, valid JSON object following this schema:
+                {
+                    "summary": "A 1-2 paragraph summary of the team's overall progress, blockers, and mood.",
+                    "teamVibe": "A short, 2-3 word phrase describing the overall team sentiment (e.g., 'Productive & Aligned', 'Slightly Blocked', 'Feeling Stressed').",
+                    "takeaways": ["A bullet point for the first key takeaway or action item.", "..."],
+                    "suggestions": ["A bullet point for the first actionable suggestion.", "..."]
+                }`;
+
+                const userQuery = `Here are the team threads for ${formatDate(currentViewDate)}:\n\n${allUpdates}\n\nPlease generate the report.`;
+
+                // MODIFIED: Reverted to the model from the "working" file
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiApiKey}`;
+
+                // MODIFIED: Re-added generationConfig and schema, mirroring the "working" file's summary call
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "OBJECT",
+                            properties: {
+                                "summary": { "type": "STRING" },
+                                "teamVibe": { "type": "STRING" },
+                                "takeaways": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                "suggestions": { "type": "ARRAY", "items": { "type": "STRING" } }
+                            },
+                            required: ["summary", "teamVibe", "takeaways", "suggestions"]
+                        }
+                    }
+                };
+
+                try {
+                    const response = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        console.error("API Error Response:", errText);
+                        throw new Error(`API Error: ${response.status}. ${errText}`);
+                    }
+                    const result = await response.json();
+
+                    if (!result.candidates || !result.candidates[0].content.parts[0].text) {
+                        throw new Error("Invalid AI response structure.");
+                    }
+                    let jsonText = result.candidates[0].content.parts[0].text;
+
+                    const data = JSON.parse(jsonText);
+
+                    const aiSummaryDocRef = doc(db, getAISummaryDocPath(currentViewDate));
+                    await setDoc(aiSummaryDocRef, {
+                        ...data,
+                        isPublished: false,
+                        generatedAt: serverTimestamp(),
+                        adminRemarks: ""
+                    });
+
+                    showToast("Draft summary generated!");
+
+                } catch (error) {
+                    console.error("Error generating summary:", error);
+                    showToast(`Error: ${error.message}.`, true);
+                    aiOutputSection.style.display = 'grid';
+                    document.getElementById('summary-content').innerHTML = `<p class="text-red-500">Error: ${error.message}.</pre>`;
+                } finally {
+                    resetLoadingState();
+                }
+            }
+
+            // --- Publish Button Logic ---
+            document.getElementById('publish-summary-btn').addEventListener('click', async () => {
+                const publishButton = document.getElementById('publish-summary-btn');
+                publishButton.disabled = true;
+                publishButton.textContent = "Publishing...";
+
+                const remarksText = adminRemarksTextarea.value || "";
+
+                const aiSummaryDocRef = doc(db, getAISummaryDocPath(currentViewDate));
+                try {
+                    await updateDoc(aiSummaryDocRef, {
+                        isPublished: true,
+                        adminRemarks: remarksText
+                    });
+                    showToast("Report Published!");
+                    publishControls.style.display = 'none';
+                } catch (error) {
+                    console.error("Error publishing report:", error);
+                    showToast("Error publishing report.", true);
+                } finally {
+                    publishButton.disabled = false;
+                    publishButton.textContent = "Publish Report";
+                }
+            });
+
+            function displayAIOutput(data) {
+                if (data.adminRemarks && data.adminRemarks.trim() !== "") {
+                    adminRemarksContent.innerHTML = `<p class="prose-serif text-gray-200">${data.adminRemarks.replace(/\n/g, '<br>')}</p>`;
+                    adminRemarksCard.style.display = 'block';
+                } else {
+                    adminRemarksCard.style.display = 'none';
+                }
+
+                adminRemarksTextarea.value = data.adminRemarks || "";
+
+                document.getElementById('summary-content').innerHTML = `<p>${data.summary.replace(/\n/g, '<br>')}</p>`;
+                document.getElementById('vibe-content').textContent = data.teamVibe || "N/A";
+
+                const takeawaysContent = document.getElementById('takeaways-content');
+                takeawaysContent.innerHTML = "";
+                if (data.takeaways && data.takeaways.length > 0) {
+                    data.takeaways.forEach(item => { takeawaysContent.innerHTML += `<li>${item}</li>`; });
+                } else {
+                    takeawaysContent.innerHTML = "<li>No specific takeaways.</li>";
+                }
+
+                const suggestionsContent = document.getElementById('suggestions-content');
+                suggestionsContent.innerHTML = "";
+                if (data.suggestions && data.suggestions.length > 0) {
+                    data.suggestions.forEach(item => { suggestionsContent.innerHTML += `<li>${item}</li>`; });
+                } else {
+                    suggestionsContent.innerHTML = "<li>No specific suggestions.</li>";
+                }
+
+                aiOutputSection.style.display = 'grid';
+            }
+
+            function resetLoadingState() {
+                generateButton.disabled = false;
+                generateButton.classList.remove('opacity-50');
+                loadingSpinner.style.display = 'none';
+            }
+
+            async function fetchWithRetry(url, options, maxRetries = 3, delay = 1000) {
+                let lastError;
+                for (let i = 0; i < maxRetries; i++) {
+                    try {
+                        const response = await fetch(url, options);
+                        if ([429, 500, 503, 504].includes(response.status)) { throw new Error(`Server error: ${response.status}`); }
+                        if (response.ok) return response;
+                        lastError = new Error(`API responded with status ${response.status} ${response.statusText}`);
+                        break;
+                    } catch (error) { lastError = error; }
+                    await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, i)));
+                }
+                throw lastError;
+            }
+
+            // --- Team View Functions ---
+            async function getAllUpdatesForDate(date) {
+                const updates = {};
+                const updatesPath = getCollectionPathForDate(date);
+                try {
+                    const querySnapshot = await getDocs(collection(db, updatesPath));
+                    querySnapshot.forEach((doc) => {
+                        updates[doc.id] = doc.data();
+                    });
+                } catch (error) {
+                    console.error("Error fetching all updates:", error);
+                }
+                return updates;
+            }
+
+            async function renderTeamView() {
+                teamGridContainer.innerHTML = `<div class="loader mx-auto"></div>`;
+                teamViewDate.textContent = formatDate(currentViewDate);
+
+                try {
+                    const allProfiles = await getAllUserProfiles();
+                    const allUpdates = await getAllUpdatesForDate(currentViewDate);
+
+                    teamGridContainer.innerHTML = ""; // Clear loader
+
+                    for (const profileId in allProfiles) {
+                        const profile = allProfiles[profileId];
+                        const updateData = allUpdates[profileId];
+                        const status = updateData ? (updateData.status || 'on-track') : 'none';
+
+                        let statusBadge = '';
+                        if (status === 'on-track') {
+                            statusBadge = `<span class="status-badge status-on-track">On Track</span>`;
+                        } else if (status === 'delayed') {
+                            statusBadge = `<span class="status-badge status-delayed">Delayed</span>`;
+                        } else if (status === 'blocked') {
+                            statusBadge = `<span class="status-badge status-blocked">Blocked</span>`;
+                        } else {
+                            statusBadge = `<span class="status-badge status-none">No Post</span>`;
+                        }
+
+                        let blockersPreview = '';
+                        if (status === 'blocked' && updateData.blockers) {
+                            const firstLine = updateData.blockers.split('\n')[0];
+                            blockersPreview = `<p class="mt-2 text-sm text-left text-gray-800 font-medium truncate" title="${updateData.blockers}">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-1 text-red-600" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                                ${firstLine}
+                            </p>`;
+                        }
+
+                        const teamCard = document.createElement('div');
+                        teamCard.className = "card p-6 text-center transition-all duration-150";
+                        if (status !== 'none') {
+                            teamCard.classList.add('cursor-pointer', 'thread-list-card');
+                            teamCard.addEventListener('click', () => openThreadDetail(profileId));
+                        }
+
+                        teamCard.innerHTML = `
+                            <div class="avatar-large mx-auto">
+                                ${avatarSvgs[profile.avatar] || avatarSvgs[defaultAvatar]}
+                            </div>
+                            <h4 class="mt-4 text-lg font-serif text-gray-900">${profile.name}</h4>
+                            <p class="mt-1 text-sm text-gray-500 break-all">${profileId === userId ? '(You)' : ''}</p>
+                            <div class="mt-4">
+                                ${statusBadge}
+                            </div>
+                            ${blockersPreview}
+                        `;
+                        teamGridContainer.appendChild(teamCard);
+                    }
+
+                } catch (error) {
+                    console.error("Error rendering team view:", error);
+                    teamGridContainer.innerHTML = `<p class="text-red-500">Error loading team data.</p>`;
+                }
+            }
+
+            // --- Weekly Trend Function (AI Powered) ---
+            document.getElementById('btn-generate-weekly-trend').addEventListener('click', loadWeeklyTrendData);
+
+            async function loadWeeklyTrendData() {
+                const button = document.getElementById('btn-generate-weekly-trend');
+                const loader = document.getElementById('weekly-ai-summary-loader');
+                const contentEl = document.getElementById('weekly-ai-summary-content');
+
+                button.disabled = true;
+                button.textContent = "Analyzing...";
+                loader.style.display = 'block';
+                contentEl.innerHTML = '';
+                trendBlockedDays.textContent = "--"; // Reset
+
+                let blockedCount = 0;
+                let onTrackCount = 0;
+                let delayedCount = 0;
+                let noPostCount = 0;
+                let allMyUpdates = "";
+
+                try {
+                    for (let i = 0; i < 7; i++) {
+                        const date = new Date(currentViewDate);
+                        date.setDate(date.getDate() - i);
+                        const dateString = formatDate(date);
+
+                        const updatePath = `/artifacts/${appId}/public/data/standupArchive/${dateString}/updates/${userId}`;
+                        const updateRef = doc(db, updatePath);
+                        const docSnap = await getDoc(updateRef);
+
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            if (data.status === 'blocked') {
+                                blockedCount++;
+                            } else if (data.status === 'delayed') {
+                                delayedCount++;
+                            } else if (data.status === 'on-track') {
+                                onTrackCount++;
+                            }
+
+                            allMyUpdates += `On ${dateString}:\n`;
+                            allMyUpdates += `Accomplishments: "${data.done || 'N/A'}"\n`;
+                            allMyUpdates += `Current Focus: "${data.doing || 'N/A'}"\n`;
+                            allMyUpdates += `Obstacles: "${data.blockers || 'None'}"\n\n`;
+                        } else {
+                            noPostCount++;
+                        }
+                    }
+                    trendBlockedDays.textContent = `${blockedCount} days`;
+
+                    // --- Render Chart ---
+                    const canvas = document.getElementById('weekly-chart-canvas');
+                    canvas.style.display = 'block';
+                    document.getElementById('chart-placeholder').style.display = 'none';
+
+                    Chart.getChart(canvas)?.destroy(); // Destroy existing chart
+                    new Chart(canvas, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['On Track', 'Delayed', 'Blocked', 'No Post'],
+                            datasets: [{
+                                label: 'Weekly Status',
+                                data: [onTrackCount, delayedCount, blockedCount, noPostCount],
+                                backgroundColor: [
+                                    '#2ECC71', // Green
+                                    '#E67E22', // Orange
+                                    '#E74C3C', // Red
+                                    '#95A5A6'  // Gray
+                                ],
+                                borderColor: '#F3F4F6', // Match page background
+                                borderWidth: 3
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    labels: {
+                                        font: {
+                                            family: "'Inter', sans-serif"
+                                        }
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Your 7-Day Status Breakdown',
+                                    font: {
+                                        family: "'Lora', serif",
+                                        size: 16
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    // --- END OF CHART ---
+
+
+                    if (allMyUpdates === "") {
+                        contentEl.innerHTML = `<p class="text-gray-500">You haven't posted any updates in the last 7 days. Post some updates to get your personal trend report.</p>`;
+                        throw new Error("No updates found, stopping."); // Stop before API call
+                    }
+
+                    const systemPrompt = `You are a helpful and positive career coach. A user is providing you with all their personal work updates from the last 7 days.
+                    Analyze all the updates and provide a concise, helpful summary.
+                    You MUST respond ONLY with a single, valid JSON object following this schema:
+                    {
+                        "summary": "A 1-2 paragraph summary of the user's main focus and achievements for the week.",
+                        "recurring_themes": ["A bullet point for the first recurring theme or blocker.", "..."],
+                        "suggestion": "One single, actionable piece of advice or a positive suggestion for the user for next week, based on their updates."
+                    }`;
+
+                    const userQuery = `Here are all my updates for the last 7 days:\n\n${allMyUpdates}\n\nPlease generate my personal coaching report.`;
+
+                    // MODIFIED: Reverted to the model from the "working" file
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${geminiApiKey}`;
+
+                    // MODIFIED: Re-added generationConfig and schema
+                    const payload = {
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    "summary": { "type": "STRING" },
+                                    "recurring_themes": { "type": "ARRAY", "items": { "type": "STRING" } },
+                                    "suggestion": { "type": "STRING" }
+                                },
+                                required: ["summary", "recurring_themes", "suggestion"]
+                            }
+                        }
+                    };
+
+                    const response = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) {
+                        const errText = await response.text();
+                        console.error("API Error Response:", errText);
+                        throw new Error(`API Error: ${response.status}. ${errText}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (!result.candidates || !result.candidates[0].content.parts[0].text) {
+                        throw new Error("Invalid AI response structure.");
+                    }
+                    let jsonText = result.candidates[0].content.parts[0].text;
+
+                    const data = JSON.parse(jsonText);
+
+                    contentEl.innerHTML = `
+                        <h4 class="font-serif text-lg text-gray-800 mb-2">Weekly Focus</h4>
+                        <p class="mb-4">${data.summary.replace(/\n/g, '<br>')}</p>
+                        
+                        <h4 class="font-serif text-lg text-gray-800 mb-2">Recurring Themes</h4>
+                        <ul class="list-disc pl-5 mb-4 space-y-1">
+                            ${data.recurring_themes.map(item => `<li>${item}</li>`).join('')}
+                        </ul>
+                        
+                        <h4 class="font-serif text-lg text-gray-800 mb-2">Your Next Step</h4>
+                        <p class="p-4 bg-gray-100 border-l-4 border-black">${data.suggestion}</p>
+                    `;
+
+                } catch (error) {
+                    console.error("Error loading weekly trend:", error);
+                    if (error.message !== "No updates found, stopping.") {
+                        contentEl.innerHTML = `<p class="text-red-500">Error generating report: ${error.message}</p>`;
+                    }
+                } finally {
+                    button.disabled = false;
+                    button.textContent = "Generate My Weekly Report";
+                    loader.style.display = 'none';
+                }
+            }
+
+
+            // --- Admin Data Wipe Function ---
+            btnWipeData.addEventListener('click', async () => {
+                if (!confirm("ARE YOU SURE?\n\nThis will delete ALL data (profiles, updates, reports) for this app instance.")) {
+                    return;
+                }
+                if (!confirm("LAST WARNING.\n\nThere is no undo. Are you absolutely sure you want to proceed?")) {
+                    return;
+                }
+
+                btnWipeData.disabled = true;
+                btnWipeData.textContent = "Deleting...";
+                showToast("Deleting all application data...");
+
+                try {
+                    const profilesRef = collection(db, getProfileCollectionPath());
+                    const profileSnap = await getDocs(profilesRef);
+                    for (const profileDoc of profileSnap.docs) {
+                        await deleteDoc(doc(db, getProfileCollectionPath(), profileDoc.id));
+                    }
+
+                    const updatesRef = collection(db, getCollectionPathForDate(currentViewDate));
+                    const updateSnap = await getDocs(updatesRef);
+                    for (const updateDoc of updateSnap.docs) {
+                        await deleteDoc(doc(db, getCollectionPathForDate(currentViewDate), updateDoc.id));
+                    }
+
+                    const summaryRef = doc(db, getAISummaryDocPath(currentViewDate));
+                    await deleteDoc(summaryRef);
+
+                    console.log("Partial data wipe complete.");
+                    showToast("Data wipe successful! Reloading...");
+
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+
+                } catch (error) {
+                    console.error("Error wiping data:", error);
+                    showToast("Error wiping data. See console.", true);
+                    btnWipeData.disabled = false;
+                    btnWipeData.textContent = "Wipe All Application Data";
+                }
+            });
+
+
+            // --- Initialize Icons on Buttons ---
+            document.getElementById('clarify-my-update').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m14-4a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> <span>Clarify</span>`;
+            document.getElementById('record-my-update').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg> <span>Record</span>`;
+
+        }); // <-- END OF DOMContentLoaded
+
+    </script>
+</body>
+
+</html>
