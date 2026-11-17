@@ -1,0 +1,1 @@
+{"name":"@nomeet/worker","private":true,"type":"module","dependencies":{"@nomeet/db":"*","@nomeet/domain":"*","@opentelemetry/api":"^1","bullmq":"^5","ioredis":"^5","nodemailer":"10.6.0","zod":"^4"}}

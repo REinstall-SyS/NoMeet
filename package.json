@@ -1,0 +1,42 @@
+{
+  "name": "nomeet",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "overrides": {"deepmerge-ts":"8.0.2","nodemailer":"10.6.0"},
+  "scripts": {
+    "dev": "npm run dev -w @nomeet/web",
+    "build": "npm run build -w @nomeet/web",
+    "start": "npm run start -w @nomeet/web",
+    "worker": "node --env-file-if-exists=.env --import tsx apps/worker/src/index.ts",
+    "jobs": "node --env-file-if-exists=.env --import tsx apps/worker/src/inspect.ts",
+    "db:generate": "prisma generate --schema packages/db/prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema packages/db/prisma/schema.prisma",
+    "db:seed": "node --env-file-if-exists=.env --import tsx packages/db/src/seed.ts",
+    "db:import": "node --env-file-if-exists=.env --import tsx packages/db/src/import-legacy.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --env-file-if-exists=.env --import tsx ./node_modules/vitest/vitest.mjs run",
+    "test:e2e": "node --env-file-if-exists=.env ./node_modules/@playwright/test/cli.js test",
+    "postinstall": "npm run db:generate"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^22",
+    "@types/nodemailer": "^7",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "prisma": "6.19.3",
+    "tsx": "^4",
+    "typescript": "~5.9.3",
+    "vitest": "^4"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3"
+  }
+}
