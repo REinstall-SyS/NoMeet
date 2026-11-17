@@ -1,0 +1,5 @@
+{
+  "compilerOptions":{"target":"ES2022","lib":["ES2023","DOM","DOM.Iterable"],"module":"ESNext","moduleResolution":"Bundler","jsx":"react-jsx","strict":true,"skipLibCheck":true,"allowJs":false,"esModuleInterop":true,"isolatedModules":true,"resolveJsonModule":true,"noEmit":true},
+  "include":["apps/**/*.ts","apps/**/*.tsx","packages/**/*.ts","tests/**/*.ts","playwright.config.ts","vitest.config.ts"],
+  "exclude":["node_modules","**/node_modules","**/.next"]
+}

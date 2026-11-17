@@ -1,0 +1,324 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum Severity {
+  LOW
+  NORMAL
+  HIGH
+}
+
+enum BlockerStatus {
+  OPEN
+  RESOLVED
+}
+
+enum CommitmentStatus {
+  OPEN
+  COMPLETED
+  CANCELED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  accounts      Account[]
+  sessions      Session[]
+  memberships   Membership[]
+}
+
+model Account {
+  id                String @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  sessionToken String @unique
+  userId       String
+  expires      DateTime
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+
+model Workspace {
+  id            String @id @default(cuid())
+  name          String
+  timezone      String @default("America/Chicago")
+  weekdays      Int[] @default([1, 2, 3, 4, 5])
+  reminderTime  String @default("10:00")
+  digestTime    String @default("16:00")
+  template      String @default("ENGINEERING")
+  aiEnabled     Boolean @default(false)
+  createdAt     DateTime @default(now())
+  members       Membership[]
+  invites       Invite[]
+  updates       Standup[]
+  drafts        Draft[]
+  blockers      Blocker[]
+  commitments   Commitment[]
+  activity      Activity[]
+  digests       Digest[]
+}
+
+model Membership {
+  workspaceId String
+  userId      String
+  role        Role @default(MEMBER)
+  joinedAt    DateTime @default(now())
+  removedAt   DateTime?
+  reminders   Boolean @default(true)
+  emailOptIn  Boolean @default(false)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User @relation(fields: [userId], references: [id])
+  authored    Standup[]
+  drafts      Draft[]
+  ownedBlockers Blocker[]
+  ownedCommitments Commitment[]
+  comments    BlockerComment[]
+  changeEvents CommitmentChange[]
+  revisions  StandupRevision[]
+  activity   Activity[]
+  notices    Notification[]
+
+  @@id([workspaceId, userId])
+  @@index([userId, removedAt])
+}
+
+model Invite {
+  id          String @id @default(cuid())
+  workspaceId String
+  email       String
+  digest      String @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, expiresAt])
+}
+
+model Standup {
+  id          String @id @default(cuid())
+  workspaceId String
+  authorId    String
+  day         String
+  done        String
+  next        String
+  impediments String @default("")
+  decisions   String @default("")
+  links       String[]
+  version     Int @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author      Membership @relation(fields: [workspaceId, authorId], references: [workspaceId, userId])
+  revisions   StandupRevision[]
+  blockers    BlockerSource[]
+  commitments Commitment[]
+  legacyReplies LegacyReply[]
+
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, authorId, day])
+  @@index([workspaceId, day, id])
+}
+
+model LegacyReply {
+  workspaceId String
+  sourceId    String
+  path        String @unique
+  authorLabel String
+  body        String
+  createdAt   DateTime
+  source      Standup @relation(fields: [workspaceId, sourceId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@index([workspaceId, sourceId, createdAt])
+}
+
+model StandupRevision {
+  workspaceId String
+  standupId   String
+  actorId     String
+  version     Int
+  snapshot    Json
+  createdAt   DateTime @default(now())
+  standup     Standup @relation(fields: [workspaceId, standupId], references: [workspaceId, id], onDelete: Cascade)
+  actor       Membership @relation(fields: [workspaceId, actorId], references: [workspaceId, userId])
+
+  @@id([workspaceId, standupId, version])
+}
+
+model Draft {
+  workspaceId String
+  authorId    String
+  day         String
+  content     Json
+  version     Int @default(1)
+  updatedAt   DateTime @updatedAt
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  author      Membership @relation(fields: [workspaceId, authorId], references: [workspaceId, userId])
+
+  @@id([workspaceId, authorId, day])
+}
+
+model Blocker {
+  id          String @id @default(cuid())
+  workspaceId String
+  title       String
+  fingerprint String
+  ownerId     String?
+  severity    Severity @default(NORMAL)
+  status      BlockerStatus @default(OPEN)
+  version     Int @default(1)
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner       Membership? @relation(fields: [workspaceId, ownerId], references: [workspaceId, userId])
+  sources     BlockerSource[]
+  comments    BlockerComment[]
+
+  @@unique([workspaceId, id])
+  @@unique([workspaceId, fingerprint])
+  @@index([workspaceId, status, createdAt])
+}
+
+model BlockerSource {
+  workspaceId String
+  blockerId   String
+  standupId   String
+  blocker     Blocker @relation(fields: [workspaceId, blockerId], references: [workspaceId, id], onDelete: Cascade)
+  standup     Standup @relation(fields: [workspaceId, standupId], references: [workspaceId, id], onDelete: Cascade)
+
+  @@id([workspaceId, blockerId, standupId])
+  @@index([workspaceId, standupId])
+}
+
+model BlockerComment {
+  id          String @id @default(cuid())
+  workspaceId String
+  blockerId   String
+  authorId    String
+  body        String
+  createdAt   DateTime @default(now())
+  blocker     Blocker @relation(fields: [workspaceId, blockerId], references: [workspaceId, id], onDelete: Cascade)
+  author      Membership @relation(fields: [workspaceId, authorId], references: [workspaceId, userId])
+
+  @@index([workspaceId, blockerId, createdAt])
+}
+
+model Commitment {
+  id          String @id @default(cuid())
+  workspaceId String
+  sourceId    String
+  ownerId     String
+  description String
+  dueDay      String
+  status      CommitmentStatus @default(OPEN)
+  version     Int @default(1)
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  source      Standup @relation(fields: [workspaceId, sourceId], references: [workspaceId, id])
+  owner       Membership @relation(fields: [workspaceId, ownerId], references: [workspaceId, userId])
+  history     CommitmentChange[]
+
+  @@unique([workspaceId, id])
+  @@index([workspaceId, ownerId, status, dueDay])
+  @@index([workspaceId, status, dueDay])
+}
+
+model CommitmentChange {
+  id           String @id @default(cuid())
+  workspaceId  String
+  commitmentId String
+  actorId      String
+  status       CommitmentStatus
+  ownerId      String
+  dueDay       String
+  createdAt    DateTime @default(now())
+  commitment   Commitment @relation(fields: [workspaceId, commitmentId], references: [workspaceId, id], onDelete: Cascade)
+  actor        Membership @relation(fields: [workspaceId, actorId], references: [workspaceId, userId])
+
+  @@index([workspaceId, commitmentId, createdAt])
+}
+
+model Activity {
+  id          String @id @default(cuid())
+  workspaceId String
+  actorId     String
+  kind        String
+  label       String
+  path        String
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor       Membership @relation(fields: [workspaceId, actorId], references: [workspaceId, userId])
+
+  @@index([workspaceId, createdAt, id])
+}
+
+model Digest {
+  workspaceId String
+  period      String
+  day         String
+  content     Json
+  ai          Json?
+  createdAt   DateTime @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, period, day])
+}
+
+model Notification {
+  id          String @id @default(cuid())
+  workspaceId String
+  userId      String
+  key         String
+  title       String
+  path        String
+  readAt      DateTime?
+  createdAt   DateTime @default(now())
+  mailState   String @default("NONE")
+  mailClaimedAt DateTime?
+  mailClaimToken String?
+  member      Membership @relation(fields: [workspaceId, userId], references: [workspaceId, userId], onDelete: Cascade)
+
+  @@unique([workspaceId, userId, key])
+  @@index([workspaceId, userId, readAt, createdAt])
+  @@index([mailState, createdAt])
+}
+
+model RateBucket {
+  key       String
+  window    DateTime
+  count     Int @default(1)
+
+  @@id([key, window])
+  @@index([window])
+}
